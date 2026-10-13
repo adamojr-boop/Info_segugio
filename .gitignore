@@ -4,4 +4,3 @@ __pycache__/
 *.pyd
 
 .env
-config.py
