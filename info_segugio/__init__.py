@@ -37,7 +37,7 @@ Contenuto rilevante:\n{result['content']}\n===\n
 
 def web_research(search_query):
     tavily_api_key = "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"
-    max_results = 1
+    max_results = 3
     include_raw = False
 
     client = TavilyClient(api_key=tavily_api_key)
@@ -58,7 +58,8 @@ def web_research(search_query):
 #Funzione per riassumere le informazioni raccolte dalle ricerche web
 def summarize_sources(web_research_results, research_topic, running_summary = None):
 
-    current_results = web_research_results[-1]
+    #current_results = web_research_results[-1]
+    current_results = "\n".join(web_research_results)
 
     if running_summary:
         message = (
@@ -74,7 +75,7 @@ def summarize_sources(web_research_results, research_topic, running_summary = No
 
     output_formatter = None
 
-    return llm(summarized_instructions, message, 0.2, output_formatter)
+    return llm(summarized_instructions, message, 0.1, output_formatter)
 
 #Analizza il riassunto e suggerisci la prossima query di ricerca
 def reflect_on_summary(research_topic, running_summary):
@@ -86,7 +87,7 @@ def reflect_on_summary(research_topic, running_summary):
 
 @cl.on_message
 async def main(message: cl.Message):
-
+    #generazione della query di ricerca
     user_message = message.content
     osq = optimize_search_query(user_message)
     
@@ -96,34 +97,54 @@ async def main(message: cl.Message):
     await cl.Message(author="system_assistant",
                      content=f"Query di ricerca ottimizzata:\n {query}.\n Mi sono soffermato su questo aspetto:\n {aspect}.\n Per questo motivo:\n {reason}.\n").send()
 
+    #Ciclo di ricerca
     running_summary = None
+    max_cycles = 3
 
-    #Ricerca web
-    results = web_research(query)
+    while True:
+        #Ricerca web
+        results = web_research(query)
 
-    #Feddback all'utente con i risultati della ricerca web
-    await cl.Message(
-        author="system_assistant", 
-        content=f"Fonti trovate:\n {results["sources_gathered"][0]}"
+        titles = "\n".join(results["sources_gathered"])
+
+        #Feddback all'utente con i risultati della ricerca web
+        await cl.Message(
+            author="system_assistant",
+            content=f"Fonti trovate:\n {titles}"
         ).send()
 
-    #Aggiorna il riassunto
-    summary = summarize_sources(results['web_research_results'], query, running_summary)
+        #Aggiorna il riassunto
+        summary = summarize_sources(results['web_research_results'], query, running_summary)
+        running_summary = summary
 
-    #Feedback all'utente
+        #Feedback all'utente
+        await cl.Message(
+            author="system_assistant",
+            content=f"Riassunto delle informazioni trovate:\n {summary}"
+        ).send()
+
+        max_cycles -= 1
+        if max_cycles <= 0:
+            break
+
+        #Genera la prossima query di ricerca
+        ros = reflect_on_summary(query, summary)
+
+        query = ros.get('domanda_approfondimento', f"Dimmi di più su {query}")
+        lacuna_conoscenza = ros.get('lacuna_conoscenza', "")
+
+        #Feedback all'utente
+        await cl.Message(
+            author="system_assistant",
+            content=f"Prossima query di ricerca suggerita:\n {query}.\n Mi sono soffermato su questo perché:\n {lacuna_conoscenza}."
+        ).send()
+
+    #Risultato finale della ricerca
     await cl.Message(
-        author="system_assistant",
-        content=f"Riassunto delle informazioni trovate:\n {summary}"
+        author="segugio_assistant",
+        content=f"Ciclo di ricerca completato.\n\n {message.content} \n\nRisposta finale:\n\n  {running_summary} "
     ).send()
+        
+    
 
-    #Genera la prossima query di ricerca
-    ros = reflect_on_summary(query, summary)
-
-    query = ros.get('domanda_approfondimento', f"Dimmi di più su {query}")
-    lacuna_conoscenza = ros.get('lacuna_conoscenza', "")
-
-    #Feedback all'utente
-    await cl.Message(
-        author="system_assistant",
-        content=f"Prossima query di ricerca suggerita:\n {query}.\n Mi sono soffermato su questo perché:\n {lacuna_conoscenza}."
-    ).send()
+    
