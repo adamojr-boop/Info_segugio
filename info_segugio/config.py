@@ -1,5 +1,7 @@
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 ### Local LLM
 #class Config:
@@ -14,3 +16,4 @@ class Config:
     LLM_MODEL_LOW = "gpt-4o-mini"
     AI_API_URL = "https://api.openai.com/v1"
     OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+    TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]

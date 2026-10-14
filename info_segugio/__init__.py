@@ -36,11 +36,10 @@ Contenuto rilevante:\n{result['content']}\n===\n
     """
 
 def web_research(search_query):
-    tavily_api_key = "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"
     max_results = 3
     include_raw = False
 
-    client = TavilyClient(api_key=tavily_api_key)
+    client = TavilyClient(api_key=Config.TAVILY_API_KEY)
     response = client.search(
         query = search_query,
         max_results = max_results,
